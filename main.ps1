@@ -20,7 +20,7 @@ function NextStep {
 # Initialize variables
 $global:Step = 0
 $global:TotalSteps = 5
-$Services = @(
+$servicesToDisable = @(
     "Telephony", "TapiSrv", "Tlntsvr", "p2pimsvc", "simptcp", "fax", "msftpsvc",
     "iprip", "ftpsvc", "RasMan", "RasAuto", "seclogon", "W3SVC", "SMTPSVC", "Dfs",
     "TrkWks", "MSDTC", "DNS", "ERSVC", "NtFrs", "helpsvc", "HTTPFilter",
@@ -111,7 +111,7 @@ NextStep "Services..."
 $ConfigureServices = Read-Host "Would you like to configure services? [Y/N]"
 if ($ConfigureServices -eq "Y") {
     $ServiceListPath = "service_list.txt"
-    $Services | Out-File -FilePath $ServiceListPath
+    $servicesToDisable | Out-File -FilePath $ServiceListPath
     Write-Output "Please delete the services you don't want managed."
     Invoke-Item $ServiceListPath
     $ServicesFromFile = Get-Content -Path $ServiceListPath | ForEach-Object { $_.Trim() }
