@@ -108,20 +108,40 @@ Write-Output "Firewall enabled successfully."
 
 # Step 2: Manage Services
 NextStep "Services..."
+
 $ConfigureServices = Read-Host "Would you like to configure services? [Y/N]"
 if ($ConfigureServices -eq "Y") {
     $ServiceListPath = "service_list.txt"
-    $servicesToDisable | Out-File -FilePath $ServiceListPath
+
+    # Write the initial list of services to the file
+    $servicesToDisable | Out-File -FilePath $ServiceListPath -Encoding UTF8
     Write-Output "Please delete the services you don't want managed."
-    Invoke-Item $ServiceListPath
+
+    # Open the file in Notepad and wait for the user to close it
+    Invoke-Item -Path $ServiceListPath
+    Write-Output "Waiting for Notepad to close..."
+    while (Get-Process -Name "notepad" -ErrorAction SilentlyContinue) {
+        Start-Sleep -Seconds 1
+    }
+
+    # Read the updated list of services from the file
     $ServicesFromFile = Get-Content -Path $ServiceListPath | ForEach-Object { $_.Trim() }
 
+    # Identify and output removed services
+    $RemovedServices = $servicesToDisable | Where-Object { $_ -notin $ServicesFromFile }
+    if ($RemovedServices.Count -gt 0) {
+        Write-Output "The following services were removed and will not be managed:"
+        $RemovedServices | ForEach-Object { Write-Output $_ }
+    }
+
+    # Stop and disable the remaining services
     foreach ($Service in $ServicesFromFile) {
         Stop-Service -Name $Service -Force -ErrorAction SilentlyContinue
         Set-Service -Name $Service -StartupType Disabled
         Write-Output "Stopped and disabled service $Service"
     }
 }
+
 
 # Step 3: Disable RDP
 $DisableRDP = Read-Host "Would you like to disable RDP? [Y/N]"
