@@ -130,14 +130,14 @@ if ($ConfigureServices -eq "Y") {
     # Identify and output removed services
     $RemovedServices = $servicesToDisable | Where-Object { $_ -notin $ServicesFromFile }
     if ($RemovedServices.Count -gt 0) {
-        Write-Output "The following services were removed and will not be managed:"
+        Write-Output "The following services will be removed:"
         $RemovedServices | ForEach-Object { Write-Output $_ }
     }
-
+    Start-Sleep -Seconds 3
     # Stop and disable the remaining services
-    foreach ($Service in $ServicesFromFile) {
+    foreach ($Service in $RemovedServices) {
         Stop-Service -Name $Service -Force -ErrorAction SilentlyContinue
-        Set-Service -Name $Service -StartupType Disabled
+        Set-Service -Name $Service -StartupType Disabled -ErrorAction SilentlyContinue
         Write-Output "Stopped and disabled service $Service"
     }
 }
@@ -182,6 +182,10 @@ if ($PerformAudit -eq "Y") {
     New-Item -Path $AuthorizedUsersFile -ItemType File -Force
     Write-Output "Please add authorized users."
     Invoke-Item $AuthorizedUsersFile
+    Write-Output "Waiting for Notepad to close..."
+    while (Get-Process -Name "notepad" -ErrorAction SilentlyContinue) {
+        Start-Sleep -Seconds 1
+    }
     $AuthorizedUsers = Get-Content $AuthorizedUsersFile | ForEach-Object { $_.Trim() }
 
     $PermittedUsers = @("DefaultAccount", "Guest", "Administrator", "WDAGUtilityAccount")
@@ -209,6 +213,10 @@ if ($PerformAudit -eq "Y") {
     $AdminUsersFile = "admin_users.txt"
     New-Item -Path $AdminUsersFile -ItemType File -Force
     Invoke-Item $AdminUsersFile
+    Write-Output "Waiting for Notepad to close..."
+    while (Get-Process -Name "notepad" -ErrorAction SilentlyContinue) {
+        Start-Sleep -Seconds 1
+    }
     $AuthorizedAdmins = Get-Content $AdminUsersFile | ForEach-Object { $_.Trim() }
 
     $CurrentAdmins = (Get-LocalGroupMember -Group "Administrators" | Select-Object -ExpandProperty Name).Where({ $_ -notin $PermittedUsers })
