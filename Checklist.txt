@@ -43,6 +43,8 @@ Ensure the latest security baselines are applied.
 Enable logging and configure log retention policies.
 Set antivirus to scan regularly and ensure it is updated.
 Disable USB drives if not necessary (via Group Policy)
+Configure UAC to Always Notify
+
 
 ---- Service Management ---- 
 FTP service [Stop & Disable]
