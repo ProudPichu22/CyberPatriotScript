@@ -1,0 +1,91 @@
+## This is a checklist for CyberPatriots based on actual practice images:
+
+---- System Configuration ----
+Windows Updates
+Update Programs
+Remove unauthorized users
+Change user privileges
+Change insecure passwords
+Secure maximum password age
+Secure minimum password age
+Secure lockout threshold
+Limit local use of blank passwords to console only [Enabled]
+Do not allow anonymous enumeration of SAM accounts [Enabled]
+Add/Remove users to group
+Add/Remove group (If needed)
+Ensure unused or default accounts are disabled or removed.
+Disable guest accounts.
+Check for and remove default shared folders (e.g., ADMIN$, C$, IPC$).
+Restrict access to the Control Panel or Settings.
+Configure account lockout duration and reset settings.
+Enforce multi-factor authentication (if applicable).
+Disable Legacy Features (e.g., LM Hash, NTLMv1 authentication).
+Enable Secure Boot in BIOS/UEFI.
+Configure timeouts: Set screen saver timeout and require password on resumption.
+Patch Firmware: Update BIOS/UEFI and network device firmware.
+
+---- Network Configuration ----
+Secure DNS Settings: Use secure DNS resolvers like DNS over HTTPS (DoH).
+Restrict Remote Access: Limit RDP and other remote access to trusted IPs or VPN.
+Disable Unnecessary Network Shares: Remove or secure public network shares.
+Configure VLANs: Segment networks for better isolation (e.g., user, server, IoT).
+
+
+---- Security Settings ---- 
+Behavior of the elevation prompt for administrators in Admin Approval Mode configured to prompt
+RDP network level authentication enabled
+RDP Security Layer set to SSL
+Windows SmartScreen configured to warn or block
+Enable firewall
+Passwords meet complexity requirements
+Disable unnecessary ports and protocols (e.g., SMBv1, Telnet).
+Ensure the latest security baselines are applied.
+Enable logging and configure log retention policies.
+Set antivirus to scan regularly and ensure it is updated.
+Disable USB drives if not necessary (via Group Policy)
+
+---- Service Management ---- 
+FTP service [Stop & Disable]
+World Wide Web Publishing Service [Stop & Disable]
+Verify unnecessary services are stopped and disabled (e.g., Telnet, Remote Registry, SNMP).
+Disable or remove services related to legacy systems or apps no longer in use.
+
+---- Access & Object Control ---- 
+Configure global object access
+AutoPlay has been disabled [All Users]
+Unauthorized Items
+Remove prohibited files
+Remove unwanted programs
+Stop any unauthorized processes
+Implement least privilege principles for all user and admin accounts.
+Set permissions for system files and directories appropriately.
+Disable Allow log on locally for sensitive accounts (e.g., admin, service accounts).
+Audit and secure access to critical registry keys.
+
+---- Audit and Forensics ---- 
+Audit Credential Validation [Success]
+Complete Forensic Questions
+Ensure logs are being collected and centralized (if using a SIEM tool).
+Review logs for signs of suspicious activity.
+Confirm proper time synchronization (NTP configuration).
+
+---- User Account Security ---- 
+Review Group Memberships: Ensure only authorized users are in privileged groups.
+Monitor Last Login Times: Identify and address stale or unused accounts.
+Use Account Naming Conventions: Standardize naming (e.g., svc_[purpose] for service accounts).
+
+---- Data Protection ---- 
+Encrypt Data: Use encryption for sensitive files and drives (e.g., BitLocker).
+Configure Backup Policies: Schedule automated backups with secure storage.
+Secure Temporary Files: Regularly clear temporary files and cache.
+
+---- Advanced Security Practices ---- 
+Enable AppLocker or Software Restriction Policies: Whitelist approved applications.
+Configure Event Subscriptions: Forward critical events to a central logging server.
+Perform Penetration Testing: Simulate attacks to identify vulnerabilities.
+Monitor Active Directory: Detect anomalies (e.g., Kerberoasting, golden tickets).
+
+---- Documentation and Communication ---- 
+Create Incident Response Plans: Develop procedures for addressing security breaches.
+Document All Changes: Log changes made during sessions for auditing purposes.
+Conduct Training: Regularly train team members on cybersecurity threats and best practices.
