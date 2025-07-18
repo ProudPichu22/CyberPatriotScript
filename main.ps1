@@ -17,10 +17,19 @@ function NextStep {
     Write-Output "($global:Step/$global:TotalSteps) - $Message"
 }
 
+function Log-Action {
+    param (
+        [string]$Message
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path "cyberpatriot.log" -Value "$timestamp - $Message"
+}
+
+
 # Initialize variables
 $global:Step = 0
 $global:TotalSteps = 5
-$servicesToDisable = @(
+$Services = @(
     "Telephony", "TapiSrv", "Tlntsvr", "p2pimsvc", "simptcp", "fax", "msftpsvc",
     "iprip", "ftpsvc", "RasMan", "RasAuto", "seclogon", "W3SVC", "SMTPSVC", "Dfs",
     "TrkWks", "MSDTC", "DNS", "ERSVC", "NtFrs", "helpsvc", "HTTPFilter",
@@ -100,6 +109,8 @@ Write-Output "------- PLEASE NOTE -------"
 Write-Output "This script may not be used by any other team than CyberPatriot team 17-3724 at Kent Career Technical Center."
 Write-Output "Continuing with script in 10 seconds..."
 Start-Sleep -Seconds 10
+Set-Content -Path "cyberpatriot.log" -Value ""
+
 
 # Step 1: Enable Firewall
 NextStep "Enabling Firewall..."
@@ -108,44 +119,25 @@ Write-Output "Firewall enabled successfully."
 
 # Step 2: Manage Services
 NextStep "Services..."
-
-$ConfigureServices = Read-Host "Would you like to configure services? [Y/N]"
-if ($ConfigureServices -eq "Y") {
+$ConfigureServices = Read-Host "Would you like to configure services? [Y/n]"
+if ($ConfigureServices -ne "N") {
     $ServiceListPath = "service_list.txt"
-
-    # Write the initial list of services to the file
-    $servicesToDisable | Out-File -FilePath $ServiceListPath -Encoding UTF8
+    $Services | Out-File -FilePath $ServiceListPath
     Write-Output "Please delete the services you don't want managed."
-
-    # Open the file in Notepad and wait for the user to close it
-    Invoke-Item -Path $ServiceListPath
-    Write-Output "Waiting for Notepad to close..."
-    while (Get-Process -Name "notepad" -ErrorAction SilentlyContinue) {
-        Start-Sleep -Seconds 1
-    }
-
-    # Read the updated list of services from the file
+    Start-Process $ServiceListPath -Wait
     $ServicesFromFile = Get-Content -Path $ServiceListPath | ForEach-Object { $_.Trim() }
 
-    # Identify and output removed services
-    $RemovedServices = $servicesToDisable | Where-Object { $_ -notin $ServicesFromFile }
-    if ($RemovedServices.Count -gt 0) {
-        Write-Output "The following services will be removed:"
-        $RemovedServices | ForEach-Object { Write-Output $_ }
-    }
-    Start-Sleep -Seconds 3
-    # Stop and disable the remaining services
-    foreach ($Service in $RemovedServices) {
+    foreach ($Service in $ServicesFromFile) {
         Stop-Service -Name $Service -Force -ErrorAction SilentlyContinue
-        Set-Service -Name $Service -StartupType Disabled -ErrorAction SilentlyContinue
+        Set-Service -Name $Service -StartupType Disabled
         Write-Output "Stopped and disabled service $Service"
+        Log-Action "Stopped and disabled service $Service"
     }
 }
 
-
 # Step 3: Disable RDP
-$DisableRDP = Read-Host "Would you like to disable RDP? [Y/N]"
-if ($DisableRDP -eq "Y") {
+$DisableRDP = Read-Host "Would you like to disable RDP? [Y/n]"
+if ($DisableRDP -ne "N") {
     Stop-Service -Name TermService -Force
     Set-Service -Name TermService -StartupType Disabled
     Stop-Service -Name SessionEnv -Force
@@ -156,36 +148,41 @@ if ($DisableRDP -eq "Y") {
     Set-Service -Name RemoteRegistry -StartupType Disabled
     reg add "HKLM/SYSTEM/CurrentControlSet/Control/Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f
     reg add "HKLM/SOFTWARE/Policies/Microsoft/Windows NT/Terminal Services" /v fDenyTSConnections /t REG_DWORD /d 1 /f
+    Log-Action "Stopped and disabled service: TermService"
+    Log-Action "Stopped and disabled service: SessionEnv"
+    Log-Action "Stopped and disabled service: UmRdpService"
+    Log-Action "Stopped and disabled service: RemoteRegistry"
+    Log-Action "Set registry key: /SYSTEM/CurrentControlSet/Control/Terminal Server/fDenyTSConnections to 1"
+    Log-Action "Set registry key: /HKLM/SOFTWARE/Policies/Microsoft/Windows NT/Terminal Services/fDenyTSConnections to 1"
 }
 
 # Step 4: Manage Registry
 NextStep "Registry..."
-$ManageRegistry = Read-Host "Would you like to manage the registry? [Y/N]"
-if ($ManageRegistry -eq "Y") {
+$ManageRegistry = Read-Host "Would you like to manage the registry? [Y/n]"
+if ($ManageRegistry -ne "N") {
     foreach ($Command in $RegistryCommands) {
         Invoke-Expression $Command
+        Log-Action "Performed registry command: $Command"
     }
 }
 
 # Step 5: User Management
 NextStep "User Management..."
-$DisableAccounts = Read-Host "Would you like to disable guest and admin accounts? [Y/N]"
-if ($DisableAccounts -eq "Y") {
+$DisableAccounts = Read-Host "Would you like to disable guest and admin accounts? [Y/n]"
+if ($DisableAccounts -ne "N") {
     net user administrator /active:no
     net user guest /active:no
+    Log-Action "Disabled account: Administrator"
+    Log-Action "Disabled account: Guest"
 }
 
-Write-Output "Would you like to perform a user audit? [Y/N]"
+Write-Output "Would you like to perform a user audit? [y/N]"
 $PerformAudit = Read-Host
 if ($PerformAudit -eq "Y") {
     $AuthorizedUsersFile = "authorized_users.txt"
     New-Item -Path $AuthorizedUsersFile -ItemType File -Force
     Write-Output "Please add authorized users."
-    Invoke-Item $AuthorizedUsersFile
-    Write-Output "Waiting for Notepad to close..."
-    while (Get-Process -Name "notepad" -ErrorAction SilentlyContinue) {
-        Start-Sleep -Seconds 1
-    }
+    Start-Process $AuthorizedUsersFile -Wait
     $AuthorizedUsers = Get-Content $AuthorizedUsersFile | ForEach-Object { $_.Trim() }
 
     $PermittedUsers = @("DefaultAccount", "Guest", "Administrator", "WDAGUtilityAccount")
@@ -196,27 +193,25 @@ if ($PerformAudit -eq "Y") {
 
     $UserChangesFile = "user_changes.txt"
     Set-Content -Path $UserChangesFile -Value "Users to delete: $UsersToDelete`nUsers to add: $UsersToAdd"
-    Invoke-Item $UserChangesFile
+    Start-Process $UserChangesFile -Wait
 
-    Write-Output "Confirm Changes? [Y/N]"
+    Write-Output "Confirm Changes? [Y/n]"
     $Confirm = Read-Host
-    if ($Confirm -eq "Y") {
+    if ($Confirm -ne "N") {
         foreach ($User in $UsersToDelete) {
             Remove-LocalUser -Name $User -ErrorAction SilentlyContinue
+            Log-Action "Removed user: $User"
         }
         foreach ($User in $UsersToAdd) {
-            New-LocalUser -Name $User -Password (ConvertTo-SecureString 'abcdefghijklmnopQ1' -AsPlainText -Force)
+            New-LocalUser -Name $User -Password (ConvertTo-SecureString 'Abcdefghijklmnopq1' -AsPlainText -Force)
+            Log-Action "Added user: $User"
         }
     }
 
     Write-Output "Please list administrator users."
     $AdminUsersFile = "admin_users.txt"
     New-Item -Path $AdminUsersFile -ItemType File -Force
-    Invoke-Item $AdminUsersFile
-    Write-Output "Waiting for Notepad to close..."
-    while (Get-Process -Name "notepad" -ErrorAction SilentlyContinue) {
-        Start-Sleep -Seconds 1
-    }
+    Start-Process $AdminUsersFile -Wait
     $AuthorizedAdmins = Get-Content $AdminUsersFile | ForEach-Object { $_.Trim() }
 
     $CurrentAdmins = (Get-LocalGroupMember -Group "Administrators" | Select-Object -ExpandProperty Name).Where({ $_ -notin $PermittedUsers })
@@ -226,14 +221,16 @@ if ($PerformAudit -eq "Y") {
 
     foreach ($Admin in $AdminsToAdd) {
         Add-LocalGroupMember -Group "Administrators" -Member $Admin
+        Log-Action "Gave administrator to user: $Admin"
     }
     foreach ($Admin in $AdminsToRemove) {
         Remove-LocalGroupMember -Group "Administrators" -Member $Admin
+        Log-Action "Removed administrator from user: $Admin"
     }
 }
 
-Write-Host "Do you wish to change all user passwords? (Excludes current user) [Y / N]"
-Write-Host "All passwords will be 'abcdefghijklmnopQ1'"
+Write-Host "Do you wish to change all user passwords? (Excludes current user) [y/N]"
+Write-Host "All passwords will be 'Abcdefghijklmnopq1'"
 
 $current_user = $env:USERNAME
 $users = @()
@@ -259,8 +256,9 @@ if ($userInput.ToUpper() -eq "Y") {
 
     if ($confirmation.ToUpper() -eq "Y") {
         foreach ($user in $users) {
-            $password = ConvertTo-SecureString "abcdefghijklmnopQ1" -AsPlainText -Force
+            $password = ConvertTo-SecureString "Abcdefghijklmnopq1" -AsPlainText -Force
             Set-LocalUser -Name $user -Password $password
+            Log-Action "Reset password for user: $user"
         }
         Write-Host "Passwords have been updated for all selected users."
     } else {
@@ -270,4 +268,5 @@ if ($userInput.ToUpper() -eq "Y") {
     Write-Host "Operation cancelled."
 }
 
-Write-Host "All Finished!"
+Write-Host "All Finished! Opening log..."
+Start-Process -FilePath "notepad" -ArgumentList "cyberpatriot.log"
