@@ -31,6 +31,15 @@ edit_file() {
     ${EDITOR:-nano} "$file"
 }
 
+prompt_confirm() {
+    local prompt="$1"
+    read -rp "$prompt [Y/n] " response
+    case "$response" in
+        [Yy]|"") return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Detect distro family
 PKG_MANAGER=""
 if command -v apt-get >/dev/null 2>&1; then
@@ -518,6 +527,7 @@ check_sudoers_passwordless
 check_cron
 check_unnecessary_services
 check_accounts_shells
+linux_user_audit
 
 log "Checks complete."
 
