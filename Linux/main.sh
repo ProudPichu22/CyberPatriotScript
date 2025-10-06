@@ -25,6 +25,12 @@ timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
 
 log() { printf "%s %s\n" "$(timestamp)" "$*"; }
 
+edit_file() {
+    local file="$1"
+    [[ -f "$file" ]] || touch "$file"
+    ${EDITOR:-nano} "$file"
+}
+
 # Detect distro family
 PKG_MANAGER=""
 if command -v apt-get >/dev/null 2>&1; then
@@ -421,6 +427,79 @@ check_accounts_shells() {
   interactive=$(awk -F: '($7!~/(nologin|false|\/sbin\/nologin)/){print $1 ":" $7}' /etc/passwd)
   report "Interactive shell accounts (sample)" "$(echo "$interactive" | head -n 40)"
 }
+
+linux_user_audit() {
+    if ! prompt_confirm "Would you like to perform a user audit?"; then
+        log "User audit canceled."
+        return
+    fi
+
+    AUTH_USERS_FILE="authorized_users.txt"
+    AUTH_ADMINS_FILE="authorized_admins.txt"
+
+    # Edit authorized users
+    log "Editing list of authorized users..."
+    edit_file "$AUTH_USERS_FILE"
+    mapfile -t AUTH_USERS < <(awk 'NF' "$AUTH_USERS_FILE") # remove empty lines
+
+    # Edit authorized admins
+    log "Editing list of authorized admins..."
+    edit_file "$AUTH_ADMINS_FILE"
+    mapfile -t AUTH_ADMINS < <(awk 'NF' "$AUTH_ADMINS_FILE")
+
+    # Get local users (UID >= 1000)
+    PERMITTED_USERS=("root" "daemon" "bin" "sys" "sync" "games" "man" "lp" "mail" "news" "uucp" "proxy" "www-data" "backup" "list" "irc" "gnats" "nobody")
+    LOCAL_USERS=()
+    while IFS=: read -r user _ uid _ _ _ _; do
+        (( uid >= 1000 )) && LOCAL_USERS+=("$user")
+    done < /etc/passwd
+
+    # Filter out permitted/system users
+    LOCAL_USERS=($(comm -23 <(printf "%s\n" "${LOCAL_USERS[@]}" | sort) <(printf "%s\n" "${PERMITTED_USERS[@]}" | sort)))
+
+    # Users to add/remove
+    USERS_TO_ADD=($(comm -23 <(printf "%s\n" "${AUTH_USERS[@]}" | sort) <(printf "%s\n" "${LOCAL_USERS[@]}" | sort)))
+    USERS_TO_REMOVE=($(comm -23 <(printf "%s\n" "${LOCAL_USERS[@]}" | sort) <(printf "%s\n" "${AUTH_USERS[@]}" | sort)))
+
+    log "Proposed user changes:"
+    echo "Users to add: ${USERS_TO_ADD[*]:-None}"
+    echo "Users to remove: ${USERS_TO_REMOVE[*]:-None}"
+
+    if prompt_confirm "Apply these user changes?"; then
+        for u in "${USERS_TO_ADD[@]}"; do
+            sudo useradd -m "$u"
+            sudo passwd "$u"
+            log "Added user: $u"
+        done
+        for u in "${USERS_TO_REMOVE[@]}"; do
+            sudo userdel -r "$u"
+            log "Removed user: $u"
+        done
+    fi
+
+    # Admins (sudo group)
+    CURRENT_ADMINS=($(getent group sudo | awk -F: '{print $4}' | tr ',' ' '))
+    ADMINS_TO_ADD=($(comm -23 <(printf "%s\n" "${AUTH_ADMINS[@]}" | sort) <(printf "%s\n" "${CURRENT_ADMINS[@]}" | sort)))
+    ADMINS_TO_REMOVE=($(comm -23 <(printf "%s\n" "${CURRENT_ADMINS[@]}" | sort) <(printf "%s\n" "${AUTH_ADMINS[@]}" | sort)))
+
+    log "Proposed admin changes:"
+    echo "Admins to add: ${ADMINS_TO_ADD[*]:-None}"
+    echo "Admins to remove: ${ADMINS_TO_REMOVE[*]:-None}"
+
+    if prompt_confirm "Apply these admin changes?"; then
+        for a in "${ADMINS_TO_ADD[@]}"; do
+            sudo usermod -aG sudo "$a"
+            log "Added $a to sudo group"
+        done
+        for a in "${ADMINS_TO_REMOVE[@]}"; do
+            sudo gpasswd -d "$a" sudo
+            log "Removed $a from sudo group"
+        done
+    fi
+
+    log "User audit complete."
+}
+
 
 # Run checks
 log "Starting checks..."
